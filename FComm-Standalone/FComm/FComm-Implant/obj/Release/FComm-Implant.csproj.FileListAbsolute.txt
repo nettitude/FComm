@@ -1,0 +1,5 @@
+E:\FComm-Standalone\FComm\FComm-Implant\bin\Release\FComm-Implant.exe
+E:\FComm-Standalone\FComm\FComm-Implant\bin\Release\FComm-Implant.pdb
+E:\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.csprojAssemblyReference.cache
+E:\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.exe
+E:\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.pdb

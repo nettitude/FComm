@@ -1,0 +1,6 @@
+E:\FComm\FComm\FComm\bin\Debug\FComm.exe.config
+E:\FComm\FComm\FComm\bin\Debug\FComm.exe
+E:\FComm\FComm\FComm\bin\Debug\FComm.pdb
+E:\FComm\FComm\FComm\obj\Debug\FComm.csprojAssemblyReference.cache
+E:\FComm\FComm\FComm\obj\Debug\FComm.exe
+E:\FComm\FComm\FComm\obj\Debug\FComm.pdb

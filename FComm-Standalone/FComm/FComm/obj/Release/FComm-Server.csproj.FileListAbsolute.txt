@@ -1,0 +1,6 @@
+E:\FComm-Standalone\FComm\FComm\bin\Release\FComm-Standalone.exe.config
+E:\FComm-Standalone\FComm\FComm\bin\Release\FComm-Standalone.exe
+E:\FComm-Standalone\FComm\FComm\bin\Release\FComm-Standalone.pdb
+E:\FComm-Standalone\FComm\FComm\obj\Release\FComm-Server.csprojAssemblyReference.cache
+E:\FComm-Standalone\FComm\FComm\obj\Release\FComm-Standalone.exe
+E:\FComm-Standalone\FComm\FComm\obj\Release\FComm-Standalone.pdb
