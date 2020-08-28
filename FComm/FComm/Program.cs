@@ -198,16 +198,19 @@ namespace FComm
                 try
                 {
                     byte[] DataToParseBytes = Decrypt(Encryptionkey, FComm.Receive());
+                    Console.WriteLine("Bytes: " + DataToParseBytes.Length);
                     //Step 1: STREAM
                     MemoryStream stream = new MemoryStream(DataToParseBytes);
                     BinaryFormatter bf = new BinaryFormatter();
                     //Step 2: DESERIALIZE!
                     List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
+                    Console.WriteLine(DataToParse.ToString());
                     stream.Dispose();
                     foreach (RHDataGram Task in DataToParse)
                     {
                         if (Task.PacketType == "INIT") // it's the initialisation data. I should do something with this during the connect phase.
                         {
+                            Console.WriteLine("Init Received or something");
                             Console.WriteLine(Task.Output);
                             Task.Retrieved = true;
                             continue;
