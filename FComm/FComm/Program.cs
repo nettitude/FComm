@@ -10,6 +10,7 @@ using System.Security;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Reflection;
 
 namespace FComm
 {
@@ -132,7 +133,7 @@ namespace FComm
         {
             Console.WriteLine("assembly: " + assemblyName);
             Console.WriteLine("typeName: " + typeName);
-            Console.WriteLine();
+            Console.WriteLine("this assembly: " + Assembly.GetExecutingAssembly().FullName);
             if (typeName.Contains("System.Collections.Generic.List"))
             {
                 return Type.GetType("System.Collections.Generic.List`1[[FComm.RHDataGram, FComm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]");
