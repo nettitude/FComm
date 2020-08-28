@@ -130,6 +130,9 @@ namespace FComm
     {
         public override Type BindToType(string assemblyName, string typeName)
         {
+            Console.WriteLine("assembly: " + assemblyName);
+            Console.WriteLine("typeName: " + typeName);
+            Console.WriteLine();
             if (typeName.Contains("System.Collections.Generic.List"))
             {
                 return Type.GetType("System.Collections.Generic.List`1[[FComm.RHDataGram, FComm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]");
