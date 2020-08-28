@@ -139,6 +139,7 @@ namespace FComm
         public static void Main(string[] args)
         {
             Console.WriteLine(String.Join(",", args));
+            Console.WriteLine(args.Length);
             Start(args);
             /*Start(new string[] {"Start","c:\\users\\public\\test.ost","c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c="});
             
