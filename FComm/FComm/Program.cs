@@ -138,6 +138,7 @@ namespace FComm
 
         public static void Main(string[] args)
         {
+            Console.WriteLine(String.Join(",", args));
             //Start(args);
             /*Start(new string[] {"Start","c:\\users\\public\\test.ost","c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c="});
             
@@ -160,16 +161,17 @@ namespace FComm
         public static void Start(string[] args)
         {
             bool Running = false;
+            
 
             if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
             {
                 FilePath = args[1];
                 Encryptionkey = args[2];
+                Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
+                FComm = new RHServer(FilePath); //create an object.
+                Running = true;
+                Init(FComm);
             }
-
-            Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
-            FComm = new RHServer(FilePath); //create an object.
-            Running = true;
 
             var command = $"{string.Join(" ", args)}";
             if (command.ToLower().StartsWith("kill"))
@@ -177,10 +179,6 @@ namespace FComm
                 IssueCommand(command, FComm, Running);
                 Running = false;
                 //assume the kill command works - maybe need to remove the implant from poshc2?
-            }
-            else if (command.ToLower().StartsWith("start"))
-            {
-                IssueCommand(FComm);
             }
             else
             {
@@ -191,8 +189,8 @@ namespace FComm
         /// <summary>
         /// Will issue the specified command to the pipe and read the response
         /// </summary>
-		public static void IssueCommand(RHServer FComm)
-        { //Overloaded method, just for init phase.
+		public static void Init(RHServer FComm)
+        { 
             lock (_lock)
             {
                 try
