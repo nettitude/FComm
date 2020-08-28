@@ -161,19 +161,23 @@ namespace FComm
         /// </summary>
         public static void Start(string[] args)
         {
+            Console.WriteLine("args in Start: " + String.Join(",", args));
             bool Running = false;
             
 
             if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
             {
+                Console.WriteLine("STARTING!!!...");
                 FilePath = args[1];
                 Encryptionkey = args[2];
                 Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
                 FComm = new RHServer(FilePath); //create an object.
+                Console.WriteLine("object: " + FComm.GetType().ToString());
                 Running = true;
                 Init(FComm);
+                Console.WriteLine("Past INIT");
             }
-
+            Console.WriteLine("After If");
             var command = $"{string.Join(" ", args)}";
             if (command.ToLower().StartsWith("kill"))
             {
