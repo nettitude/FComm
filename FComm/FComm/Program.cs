@@ -131,14 +131,23 @@ namespace FComm
     {
         public override Type BindToType(string assemblyName, string typeName)
         {
-            Console.WriteLine("assembly: " + assemblyName);
-            Console.WriteLine("typeName: " + typeName);
-            Console.WriteLine("this assembly: " + Assembly.GetExecutingAssembly().FullName);
+            Console.WriteLine("---");
+            Console.WriteLine("Wanted assembly: " + assemblyName);
+            Console.WriteLine("Wanted typeName: " + typeName);
+            Console.WriteLine("This assembly: " + Assembly.GetExecutingAssembly().FullName);
+            RHDataGram Dave = new RHDataGram();
+            Console.WriteLine("Created Object Type: " + Dave.GetType().ToString());
+            Console.WriteLine("---");
             if (typeName.Contains("System.Collections.Generic.List"))
             {
+                Console.WriteLine("returning fixed assembly");
                 return Type.GetType("System.Collections.Generic.List`1[[FComm.RHDataGram, FComm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]");
             }
-            return Type.GetType("FComm.RHDataGram");
+            Console.WriteLine("Returning Stuff");
+            string thisAssembly = Assembly.GetExecutingAssembly().FullName;
+            Console.WriteLine("Returned String: " + String.Format("{0}, {1}", typeName, thisAssembly));
+            Console.WriteLine("Returning: " + Type.GetType(String.Format("{0}, {1}",typeName, thisAssembly)).ToString());
+            return Type.GetType(String.Format("{0}, {1}", typeName, thisAssembly));
         }
     }
 
