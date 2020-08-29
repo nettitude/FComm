@@ -374,7 +374,7 @@ namespace FComm
                             while (WaitOnTask)
                             {
                                 RHDataGram Task = FComm.GetCurrentTasking();
-                                if (Task.Output != "")
+                                if (Task.Output.Length > 4)
                                 {
                                     Task.Retrieved = true;
                                     FComm.UpdateTask(Task);
