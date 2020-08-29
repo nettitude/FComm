@@ -379,11 +379,12 @@ namespace FComm
                             {
                                 Console.WriteLine("Waiting on output");
                                 RHDataGram Task = FComm.GetCurrentTasking();
-                                Console.WriteLine(Task.ToString());
-                                Console.WriteLine(Task.Output);
-                                Task.Retrieved = true;
-                                FComm.UpdateTask(Task);
-                                if (Task.Retrieved == true){
+                                if (Task.Output != "")
+                                {
+                                    Console.WriteLine(Task.ToString());
+                                    Console.WriteLine(Task.Output);
+                                    Task.Retrieved = true;
+                                    FComm.UpdateTask(Task);
                                     WaitOnTask = false;
                                 }
                             }
