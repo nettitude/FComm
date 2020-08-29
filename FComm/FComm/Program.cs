@@ -357,14 +357,11 @@ namespace FComm
             }
             else
             {
-                Console.WriteLine("InCommandSection");
-
                 lock (_lock)
                 {
                     try
                     {
                         var command = $"{string.Join(" ", args)}";
-                        Console.WriteLine("CommandToSend: " + command);
                         if (command.ToLower().StartsWith("kill"))
                         {
                             FComm.SetNewTask(command);
@@ -372,12 +369,10 @@ namespace FComm
                         }
                         else
                         {
-                            Console.WriteLine("New Tasking");
                             bool WaitOnTask = true;
                             FComm.SetNewTask(command);
                             while (WaitOnTask)
                             {
-                                Console.WriteLine("Waiting on output");
                                 RHDataGram Task = FComm.GetCurrentTasking();
                                 if (Task.Output != "")
                                 {
@@ -387,7 +382,6 @@ namespace FComm
                                 }
                             }
                         }
-                        Console.WriteLine("Command Section Ended");
                     }
                     catch (Exception e)
                     {

