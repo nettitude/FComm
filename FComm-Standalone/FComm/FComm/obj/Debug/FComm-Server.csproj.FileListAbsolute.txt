@@ -10,6 +10,3 @@ E:\FComm\FComm-Standalone\FComm\FComm\bin\Debug\FComm.pdb
 E:\FComm\FComm-Standalone\FComm\FComm\obj\Debug\FComm-Server.csprojAssemblyReference.cache
 E:\FComm\FComm-Standalone\FComm\FComm\obj\Debug\FComm.exe
 E:\FComm\FComm-Standalone\FComm\FComm\obj\Debug\FComm.pdb
-E:\FComm\FComm-Standalone\FComm\FComm\bin\Debug\Newtonsoft.Json.dll
-E:\FComm\FComm-Standalone\FComm\FComm\bin\Debug\Newtonsoft.Json.xml
-E:\FComm\FComm-Standalone\FComm\FComm\obj\Debug\FComm-Server.csproj.CopyComplete

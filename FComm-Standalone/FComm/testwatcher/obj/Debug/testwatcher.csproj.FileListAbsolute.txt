@@ -1,0 +1,5 @@
+E:\FComm\FComm-Standalone\FComm\testwatcher\bin\Debug\testwatcher.exe
+E:\FComm\FComm-Standalone\FComm\testwatcher\bin\Debug\testwatcher.pdb
+E:\FComm\FComm-Standalone\FComm\testwatcher\obj\Debug\testwatcher.csprojAssemblyReference.cache
+E:\FComm\FComm-Standalone\FComm\testwatcher\obj\Debug\testwatcher.exe
+E:\FComm\FComm-Standalone\FComm\testwatcher\obj\Debug\testwatcher.pdb
