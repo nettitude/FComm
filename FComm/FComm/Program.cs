@@ -377,12 +377,15 @@ namespace FComm
                             FComm.SetNewTask(command);
                             while (WaitOnTask)
                             {
+                                Console.WriteLine("Waiting on output");
                                 RHDataGram Task = FComm.GetCurrentTasking();
                                 Console.WriteLine(Task.ToString());
                                 Console.WriteLine(Task.Output);
                                 Task.Retrieved = true;
                                 FComm.UpdateTask(Task);
-                                WaitOnTask = false;
+                                if (Task.Retrieved == true){
+                                    WaitOnTask = false;
+                                }
                             }
                         }
                         Console.WriteLine("Command Section Ended");
