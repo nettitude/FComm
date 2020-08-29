@@ -5,309 +5,203 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
-using System.Runtime.Serialization;
 using System.Security;
-using System.Diagnostics;
-using System.Collections.Generic;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Reflection;
 
 namespace FComm
 {
-    [Serializable()]
-    public class RHDataGram : ISerializable
+    public class RHDataGram
     {
         public string PacketType { get; set; }
         public string Input { get; set; }
         public string Output { get; set; }
-        public DateTime UpdateTime { get; set; }
-        public bool Sent { get; set; }
         public bool Actioned { get; set; }
         public bool Retrieved { get; set; }
 
         public RHDataGram()
         {
-            UpdateTime = DateTime.Now;
-            Sent = false;
             Actioned = false;
             Retrieved = false;
         }
 
+        public RHDataGram(string[] objContents)
+        {
+            PacketType = objContents[0];
+            Input = objContents[1];
+            Output = objContents[2];
+            Actioned = bool.Parse(objContents[3]);
+            Retrieved = bool.Parse(objContents[4]);
+        }
+
+        public RHDataGram(string objContents)
+        {
+            char[] delim = { ',' };
+            FromStringArray(objContents.Split(delim));
+        }
+
         public override string ToString()
         {
-            return string.Format("Packet of type {0}, contained the input {1} and was constructed at {2}.\n Complete State is: {3} and Retrieved state is: {4}.\n Result is: {5}", PacketType, Input, UpdateTime, Sent, Retrieved, Output);
+            return string.Join(",", ToStringArray());
         }
 
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public string[] ToStringArray()
         {
-            info.AddValue("PacketType", PacketType);
-            info.AddValue("Input", Input);
-            info.AddValue("Output", Output);
-            info.AddValue("Sent", Sent);
-            info.AddValue("Retrieved", Retrieved);
-            info.AddValue("Actioned", Actioned);
-            info.AddValue("UpdateTime", UpdateTime);
+            return new string[] { PacketType, Input, Output, Actioned.ToString(), Retrieved.ToString() };
         }
 
-        public RHDataGram(SerializationInfo info, StreamingContext context)
+        public void FromStringArray(string[] objContents)
         {
-            PacketType = (string)info.GetValue("PacketType", typeof(string));
-            Input = (string)info.GetValue("Input", typeof(string));
-            Output = (string)info.GetValue("Output", typeof(string));
-            Sent = (bool)info.GetValue("Sent", typeof(bool));
-            Actioned = (bool)info.GetValue("Actioned", typeof(bool));
-            Retrieved = (bool)info.GetValue("Retrieved", typeof(bool));
-            UpdateTime = (DateTime)info.GetValue("UpdateTime", typeof(DateTime));
+            PacketType = objContents[0];
+            Input = objContents[1];
+            Output = objContents[2];
+            Actioned = bool.Parse(objContents[3]);
+            Retrieved = bool.Parse(objContents[4]);
         }
     }
-
 
     public class RHServer
     {
         //Client is the far end of this connection.
-        private string Filepath;
-        public RHServer(string Filepath)
+        private string FilePath;
+        private string Key;
+        public RHServer(string FilePath_In, string key)
         {
+            //initialise object.
             try
             {
-                if (File.Exists(Filepath))
-                {
-                    this.Filepath = Filepath;
-                }
+                FilePath = FilePath_In;
+                Key = key;
+                RHDataGram InitialObject = GetData();
+                Console.WriteLine(InitialObject.Output);
+                InitialObject.Retrieved = true;
+                ClearTask();
             }
             catch (SecurityException e)
             {
-                Debug.Print(e.Message);
+                Console.WriteLine(e.Message);
             }
             catch (Exception e)
             {
-                Debug.Print(e.Message);
+                Console.WriteLine(e.Message);
             }
         }
 
-        public string Receive()
+        public void SetNewTask(string input)
         {
-            //Noddy as
-            return File.ReadAllText(this.Filepath);
-        }
-        public void Send(byte[] data)
-        {
-            //method to send dataGrams, not bytearrays.
-            throw new NotImplementedException();
-        }
-        public void SendData(String DataToSend)
-        {
-            //Write bytearrays - Ugh. Entire thing passes massive base64 strings around.
-            //Write strings.
-            try
-            {
-                //intended to handle byte[]
-                //FileStream FileToBeWritten = File.Open(this.filepath, FileMode.Open, FileAccess.Write);
-                //FileToBeWritten.Write(toGo, 0, toGo.Length); //Write the bytearray to the file.
-                //FileToBeWritten.Close();
-                File.WriteAllText(this.Filepath, DataToSend);
-            }
-            catch (Exception e)
-            {
-                Debug.Print(e.Message);
-            }
+            RHDataGram Task = new RHDataGram() { PacketType = "TASK", Input = input, Output = "" };
+            SendData(Task);
+
         }
 
-        public RHDataGram SetTask(string task)
+        public RHDataGram GetCurrentTasking()
         {
-            RHDataGram newTask = new RHDataGram();
-            newTask.Input = task;
-            return newTask;
+            //Just to make the methods seem sensible.
+            return GetData();
+        }
+        public void ClearTask()
+        {
+            //Really for a server instance.
+            bool FileExists = true;
+            while (FileExists)
+            {
+                try
+                {
+                    File.Delete(FilePath);
+                    FileExists = false;
+
+                } catch (IOException)
+                {
+                    //ToDo: again needs an attempt counter so it just doesn't perma hang
+                    Thread.Sleep(500);
+                }
+            }
+        }
+        public void UpdateTask(RHDataGram Task)
+        {
+            //Just to make the methods seem sensible.
+            SendData(Task);
+        }
+
+        private void SafeFileWrite(string data)
+        {
+            //Guaranteed File Write.
+            FileStream f = null;
+            while (f == null)
+            {
+                try
+                {
+                    f = new FileStream(FilePath, FileMode.Create, FileAccess.Write);
+                    StreamWriter sr = new StreamWriter(f);
+                    sr.WriteLine(data);
+                    sr.Close();
+                    f.Close();
+                    sr.Dispose();
+                    f.Dispose();
+                }
+                catch (IOException)
+                {
+                    //TODO: Limit attempts, throw an exception to indicate access has been lost
+                    Thread.Sleep(200); // small sleep to wait before we loop to try again. Need to have an "attempts" limit. but not yet.
+                }
+            }
+        }
+        private string SafeFileRead()
+        {
+            string StrTask = "";
+            int counter = 0;
+            FileStream f = null;
+            while (f == null)
+            {
+                try
+                {
+                    f = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
+                    StreamReader sr = new StreamReader(f);
+                    string line;
+                    while ((line = sr.ReadLine()) != null)
+                    {
+                        if (counter > 1)
+                        {
+                            throw new Exception();
+                        }
+                        //This should only happen once. Should. SHOULD. shit. it wont. so above it'll throw an exception if it derps.
+                        StrTask = (line);
+                        counter++;
+                    }
+                    sr.Close();
+                    f.Close();
+                    sr.Dispose();
+                    f.Dispose();
+                }
+                catch (IOException)
+                {
+                    //TODO: Limit attempts, throw an exception to indicate access has been lost
+                    Thread.Sleep(500); // small sleep to wait before we loop to try again. Need to have an "attempts" limit. but not yet.
+                }
+            }
+            return StrTask;
+        }
+
+        private void SendData(RHDataGram DataToSend)
+        {
+            //Turn object into a string.
+            //encrypt it
+            //write it.
+            SafeFileWrite(Encrypt(Key, DataToSend.ToString()));
+        }
+
+        private RHDataGram GetData()
+        {
+            //Get the contents of the file.
+            //Decrypt it
+            //Create a DataGram.
+            return new RHDataGram(Decrypt(Key, SafeFileRead()));
         }
 
         public void CleanUp()
         {
             //maybe utilise POSH SHRED here?
-            File.Delete(this.Filepath);
+            File.Delete(FilePath);
         }
-
-    }
-    sealed class PreMergeToMergedDeserializationBinder : SerializationBinder
-    {
-        public override Type BindToType(string assemblyName, string typeName)
-        {
-            Console.WriteLine("---");
-            Console.WriteLine("Wanted assembly: " + assemblyName);
-            Console.WriteLine("Wanted typeName: " + typeName);
-            Console.WriteLine("This assembly: " + Assembly.GetExecutingAssembly().FullName);
-            RHDataGram Dave = new RHDataGram();
-            Console.WriteLine("Created Object Type: " + Dave.GetType().ToString());
-            Console.WriteLine("---");
-            if (typeName.Contains("System.Collections.Generic.List"))
-            {
-                Console.WriteLine("returning fixed assembly");
-                return Type.GetType("System.Collections.Generic.List`1[[FComm.RHDataGram, FComm, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]");
-            }
-            Console.WriteLine("Returning Stuff");
-            string thisAssembly = Assembly.GetExecutingAssembly().FullName;
-            Console.WriteLine("Returned String: " + String.Format("{0}, {1}", typeName, thisAssembly));
-            Console.WriteLine("Returning: " + Type.GetType(String.Format("{0}, {1}",typeName, thisAssembly)).ToString());
-            return Type.GetType(String.Format("{0}, {1}", typeName, thisAssembly));
-        }
-    }
-
-
-    public class Class1
-    {
-        private static string FilePath;
-        private static string Encryptionkey = "";
-        private static RHServer FComm;
-        private static readonly object _lock = new object();
-
-        public static void Main(string[] args)
-        {
-            Console.WriteLine(String.Join(",", args));
-            Start(args);
-            //Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
-            /*
-            Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
-            Console.ReadLine();
-            Start(new string[] { "foo" });
-            Console.ReadLine();
-            Start(new string[] { "foo" });
-            Console.ReadLine();
-            Start(new string[] { "foo" });
-            Console.ReadLine();
-            Start(new string[] { "foo" });
-            Console.ReadLine();
-            */
-        }
-
-        /// <summary>
-        /// Just a function that main can wrap for testing. 
-        /// </summary>
-        public static void Start(string[] args)
-        {
-            bool Running = false;
-
-
-            if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
-            {
-                FilePath = args[1];
-                Encryptionkey = args[2];
-                Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
-                FComm = new RHServer(FilePath); //create an object.
-                Running = true;
-                Init(FComm);
-            }
-            else
-            {
-                var command = $"{string.Join(" ", args)}";
-                if (command.ToLower().StartsWith("kill"))
-                {
-                    IssueCommand(command, FComm, Running);
-                    Running = false;
-                    //assume the kill command works - maybe need to remove the implant from poshc2?
-                }
-                else
-                {
-                    IssueCommand(command, FComm, Running);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Will issue the specified command to the pipe and read the response
-        /// </summary>
-		public static void Init(RHServer FComm)
-        {
-            lock (_lock)
-            {
-                try
-                {
-                    byte[] DataToParseBytes = Decrypt(Encryptionkey, FComm.Receive());
-                    
-                    //Step 1: STREAM
-                    MemoryStream stream = new MemoryStream(DataToParseBytes);
-                    BinaryFormatter bf = new BinaryFormatter();
-                    //Fix the assembly name.
-                    bf.Binder = new PreMergeToMergedDeserializationBinder();
-                    //Step 2: DESERIALIZE!
-                    List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
-                    stream.Dispose();
-                    foreach (RHDataGram Task in DataToParse)
-                    {
-                        if (Task.PacketType == "INIT" && Task.Retrieved == false) // it's the initialisation data. I should do something with this during the connect phase.
-                        {
-                            Console.WriteLine(Task.Output);
-                            Task.Retrieved = true;
-                            continue;
-                        }
-                    }
-                    MemoryStream stream2 = new MemoryStream();
-                    bf.Serialize(stream2, DataToParse);
-                    var DataToGo = Encrypt(Encryptionkey, null, false, stream2.ToArray()); //list is encrypted.
-                    stream2.Dispose();
-                    //Send the DATAAAAAAAAAHH!!!
-                    FComm.SendData(DataToGo);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"[-] Error in FComm Initialisation!!: {e.Message}");
-                    Console.WriteLine($"[-] {e.StackTrace}");
-                }
-            }
-        }
-        public static void IssueCommand(string command, RHServer FComm, bool Running)
-        {
-            // Lock this so only one thread can read/write to the pipe at a time
-            lock (_lock)
-            {
-                while (Running)
-                {
-                    Thread.Sleep(5000);
-                    bool taskAdded = false;
-                    try
-                    {
-                        //Get file contents
-                        //decrypt the contents
-
-                        byte[] DataToParseBytes = Decrypt(Encryptionkey, FComm.Receive());
-                        //Step 1: STREAM
-                        MemoryStream stream = new MemoryStream(DataToParseBytes);
-                        BinaryFormatter bf = new BinaryFormatter();
-                        bf.Binder = new PreMergeToMergedDeserializationBinder();
-                        //Step 2: DESERIALIZE!
-                        List<RHDataGram> DataToParse = (List<RHDataGram>)bf.Deserialize(stream);
-                        stream.Dispose();
-
-                        foreach (RHDataGram Task in DataToParse)
-                        {
-                            if (Task.Actioned == true && Task.PacketType != "INIT" && Task.Retrieved == false) //It's output from a command!.
-                            {
-                                Console.WriteLine(Task.Output);
-                                Task.Retrieved = true;
-                                Running = false;
-                            }
-                        }
-                        if (taskAdded == false) // Shonky Ghetto Code just so we don't add endless copies of the same command.
-                        {
-                            DataToParse.Add(FComm.SetTask(command));
-                            taskAdded = true;
-                        }
-
-                        MemoryStream stream2 = new MemoryStream();
-                        bf.Serialize(stream2, DataToParse);
-                        var DataToGo = Encrypt(Encryptionkey, null, false, stream2.ToArray()); //list is encrypted.
-                        stream2.Dispose();
-                        //Send the DATAAAAAAAAAHH!!!
-                        FComm.SendData(DataToGo);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine($"[-] Error in FComm Command Loop: {e.Message}");
-                        Console.WriteLine($"[-] {e.StackTrace}");
-                    }
-                }
-            }
-        }
-
-        private static byte[] Decrypt(string key, string ciphertext)
+        private static string Decrypt(string key, string ciphertext)
         {
             var rawCipherText = Convert.FromBase64String(ciphertext);
             var IV = new Byte[16];
@@ -316,19 +210,24 @@ namespace FComm
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV));
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted.ToArray();
+                //return decrypted;
+                //return decrypted.Where(x => x > 0).ToArray();
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
             }
             catch
             {
                 var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV), false);
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                return decrypted.ToArray();
+                //return decrypted;
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
+                //return decrypted.Where(x => x > 0).ToArray();
             }
             finally
             {
                 Array.Clear(rawCipherText, 0, rawCipherText.Length);
                 Array.Clear(IV, 0, 16);
             }
+
         }
 
         private static string Encrypt(string key, string un, bool comp = false, byte[] unByte = null)
@@ -399,9 +298,105 @@ namespace FComm
             Buffer.BlockCopy(second, 0, ret, first.Length, second.Length);
             return ret;
         }
-
-
-
     }
+
+    public class Class1
+    {
+        private static bool Initialised = false;
+        private static RHServer FComm;
+        private static readonly object _lock = new object();
+
+        public static void Main(string[] args)
+        {
+            Console.WriteLine(String.Join(",", args));
+            Start(args);
+            //Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
+            /*
+            Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
+            Console.ReadLine();
+            */
+            //Start(new string[] { "foo" });
+            /*Console.ReadLine();
+            Start(new string[] { "foo" });
+            Console.ReadLine();
+            Start(new string[] { "foo" });
+            Console.ReadLine();
+            Start(new string[] { "foo" });
+            Console.ReadLine();
+            */
+        }
+
+        /// <summary>
+        /// Just a function that main can wrap for testing. 
+        /// </summary>
+        public static void Start(string[] args)
+        {
+
+            if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
+            {
+                try
+                {
+                    if (Initialised == false)
+                    {
+                        string FilePath = args[1];
+                        string Encryptionkey = args[2];
+                        Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
+                        FComm = new RHServer(FilePath, Encryptionkey); //create an object.
+                        if (FComm != null)
+                        {
+                            Initialised = true; //update state of the the server
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[-] Error in FComm Initialisation!!: {e.Message}");
+                    Console.WriteLine($"[-] {e.StackTrace}");
+                }
+
+            }
+            else
+            {
+                Console.WriteLine("InCommandSection");
+
+                lock (_lock)
+                {
+                    try
+                    {
+                        var command = $"{string.Join(" ", args)}";
+                        Console.WriteLine("CommandToSend: " + command);
+                        if (command.ToLower().StartsWith("kill"))
+                        {
+                            FComm.SetNewTask(command);
+                            //assume the kill command works - maybe need to remove the implant from poshc2?
+                        }
+                        else
+                        {
+                            Console.WriteLine("New Tasking");
+                            bool WaitOnTask = true;
+                            FComm.SetNewTask(command);
+                            while (WaitOnTask)
+                            {
+                                RHDataGram Task = FComm.GetCurrentTasking();
+                                Console.WriteLine(Task.ToString());
+                                Console.WriteLine(Task.Output);
+                                Task.Retrieved = true;
+                                FComm.UpdateTask(Task);
+                                WaitOnTask = false;
+                            }
+                        }
+                        Console.WriteLine("Command Section Ended");
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"[-] Error in FComm Command: {e.Message}");
+                        Console.WriteLine($"[-] {e.StackTrace}");
+                    }
+                }
+            }
+
+        }
+    }
+
 }
 
