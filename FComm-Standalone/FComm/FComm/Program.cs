@@ -13,135 +13,285 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Reflection;
-using Newtonsoft.Json;
 
 namespace FComm
 {
-    [Serializable()]
-    public class RHDataGram : ISerializable
+    public class RHDataGram
     {
         public string PacketType { get; set; }
         public string Input { get; set; }
         public string Output { get; set; }
-        public DateTime UpdateTime { get; set; }
-        public bool Sent { get; set; }
         public bool Actioned { get; set; }
         public bool Retrieved { get; set; }
 
         public RHDataGram()
         {
-            UpdateTime = DateTime.Now;
-            Sent = false;
             Actioned = false;
             Retrieved = false;
         }
 
+        public RHDataGram(string[] objContents)
+        {
+            PacketType = objContents[0];
+            Input = objContents[1];
+            Output = objContents[2];
+            Actioned = bool.Parse(objContents[3]);
+            Retrieved = bool.Parse(objContents[4]);
+        }
+
+        public RHDataGram(string objContents)
+        {
+            char[] delim = { ',' };
+            FromStringArray(objContents.Split(delim));
+        }
+
         public override string ToString()
         {
-            return string.Format("Packet of type {0}, contained the input {1} and was constructed at {2}.\n Complete State is: {3} and Retrieved state is: {4}.\n Result is: {5}", PacketType, Input, UpdateTime, Sent, Retrieved, Output);
+            return string.Join(",", ToStringArray());
         }
 
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public string[] ToStringArray()
         {
-            info.AddValue("PacketType", PacketType);
-            info.AddValue("Input", Input);
-            info.AddValue("Output", Output);
-            info.AddValue("Sent", Sent);
-            info.AddValue("Retrieved", Retrieved);
-            info.AddValue("Actioned", Actioned);
-            info.AddValue("UpdateTime", UpdateTime);
+            return new string[] { PacketType, Input, Output, Actioned.ToString(), Retrieved.ToString() };
         }
 
-        public RHDataGram(SerializationInfo info, StreamingContext context)
+        public void FromStringArray(string[] objContents)
         {
-            PacketType = (string)info.GetValue("PacketType", typeof(string));
-            Input = (string)info.GetValue("Input", typeof(string));
-            Output = (string)info.GetValue("Output", typeof(string));
-            Sent = (bool)info.GetValue("Sent", typeof(bool));
-            Actioned = (bool)info.GetValue("Actioned", typeof(bool));
-            Retrieved = (bool)info.GetValue("Retrieved", typeof(bool));
-            UpdateTime = (DateTime)info.GetValue("UpdateTime", typeof(DateTime));
+            PacketType = objContents[0];
+            Input = objContents[1];
+            Output = objContents[2];
+            Actioned = bool.Parse(objContents[3]);
+            Retrieved = bool.Parse(objContents[4]);
         }
     }
-
 
     public class RHServer
     {
         //Client is the far end of this connection.
-        private string Filepath;
-        public RHServer(string Filepath)
+        private string FilePath;
+        private string Key;
+        public RHServer(string FilePath_In, string HostInfo, string key)
         {
+            //initialise object.
             try
             {
-                if (File.Exists(Filepath))
-                {
-                    this.Filepath = Filepath;
-                }
+                FilePath = FilePath_In;
+                Key = key;
+                string path = Path.GetDirectoryName(FilePath_In);
+                string filename = Path.GetFileName(FilePath_In);
+                Directory.CreateDirectory(path); //Create the full path if it doesn't exist.
+                var f = File.Create(FilePath_In); //create the file if it doesn't exist. Probably worth putting more sanity checks here.
+                f.Close();
+                f.Dispose();
+                //lets populate it with the info we need.
+                RHDataGram InitialContent = new RHDataGram() { PacketType = "INIT", Input = "initial", Output = HostInfo, Actioned = true };
+                SendData(InitialContent);
             }
             catch (SecurityException e)
             {
-                Debug.Print(e.Message);
+                Console.WriteLine(e.Message);
             }
             catch (Exception e)
             {
-                Debug.Print(e.Message);
+                Console.WriteLine(e.Message);
             }
         }
 
-        public string Receive()
+        public void Tasking(string input)
         {
-            //Noddy as
-            return File.ReadAllText(this.Filepath);
-        }
-        public void Send(byte[] data)
-        {
-            //method to send dataGrams, not bytearrays.
-            throw new NotImplementedException();
-        }
-        public void SendData(String DataToSend)
-        {
-            //Write bytearrays - Ugh. Entire thing passes massive base64 strings around.
-            //Write strings.
-            try
-            {
-                //intended to handle byte[]
-                //FileStream FileToBeWritten = File.Open(this.filepath, FileMode.Open, FileAccess.Write);
-                //FileToBeWritten.Write(toGo, 0, toGo.Length); //Write the bytearray to the file.
-                //FileToBeWritten.Close();
-                File.WriteAllText(this.Filepath, DataToSend);
-            }
-            catch (Exception e)
-            {
-                Debug.Print(e.Message);
-            }
+            RHDataGram Task = new RHDataGram() { PacketType = "TASK", Input = input, Output = "", Actioned = false };
+
         }
 
-        public RHDataGram SetTask(string task)
+        public RHDataGram GetCurrentTasking()
         {
-            RHDataGram newTask = new RHDataGram();
-            newTask.Input = task;
-            return newTask;
+            //Just to make the methods seem sensible.
+            return GetData();
+        }
+        public void UpdateTask(RHDataGram Task)
+        {
+            //Just to make the methods seem sensible.
+            SendData(Task);
+        }
+
+        private void SafeFileWrite(string data)
+        {
+            //Guaranteed File Write.
+            FileStream f = null;
+            while (f == null)
+            {
+                try
+                {
+                    f = new FileStream(FilePath, FileMode.Create, FileAccess.Write);
+                    StreamWriter sr = new StreamWriter(f);
+                    sr.WriteLine(data);
+                    sr.Close();
+                    f.Close();
+                    sr.Dispose();
+                    f.Dispose();
+                }
+                catch (IOException)
+                {
+                    //TODO: Limit attempts, throw an exception to indicate access has been lost
+                    Thread.Sleep(200); // small sleep to wait before we loop to try again. Need to have an "attempts" limit. but not yet.
+                }
+            }
+        }
+        private string SafeFileRead()
+        {
+            string StrTask = "";
+            int counter = 0;
+            FileStream f = null;
+            while (f == null)
+            {
+                try
+                {
+                    f = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
+                    StreamReader sr = new StreamReader(f);
+                    string line;
+                    while ((line = sr.ReadLine()) != null)
+                    {
+                        if (counter > 1)
+                        {
+                            throw new Exception();
+                        }
+                        //This should only happen once. Should. SHOULD. shit. it wont. so above it'll throw an exception if it derps.
+                        StrTask = (line);
+                        counter++;
+                    }
+                    sr.Close();
+                    f.Close();
+                    sr.Dispose();
+                    f.Dispose();
+                }
+                catch (IOException)
+                {
+                    //TODO: Limit attempts, throw an exception to indicate access has been lost
+                    Thread.Sleep(500); // small sleep to wait before we loop to try again. Need to have an "attempts" limit. but not yet.
+                }
+            }
+            return StrTask;
+        }
+
+        private void SendData(RHDataGram DataToSend)
+        {
+            //Turn object into a string.
+            //encrypt it
+            //write it.
+            SafeFileWrite(Encrypt(Key, DataToSend.ToString()));
+        }
+
+        private RHDataGram GetData()
+        {
+            //Get the contents of the file.
+            //Decrypt it
+            //Create a DataGram.
+            return new RHDataGram(Decrypt(Key, SafeFileRead()));
         }
 
         public void CleanUp()
         {
             //maybe utilise POSH SHRED here?
-            File.Delete(this.Filepath);
+            File.Delete(FilePath);
         }
-
-    }
-    /*sealed class PreMergeToMergedDeserializationBinder : SerializationBinder
-    {
-        public override Type BindToType(string assemblyName, string typeName)
+        private static string Decrypt(string key, string ciphertext)
         {
-            if (typeName.Contains("System.Collections.Generic.List"))
+            var rawCipherText = Convert.FromBase64String(ciphertext);
+            var IV = new Byte[16];
+            Array.Copy(rawCipherText, IV, 16);
+            try
             {
-                return Type.GetType("System.Collections.Generic.List`1[[FComm.RHDataGram, FComm-Standalone, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]");
+                var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV));
+                var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
+                //return decrypted;
+                //return decrypted.Where(x => x > 0).ToArray();
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
             }
-            return Type.GetType("FComm.RHDataGram");
-        }
-    }*/
+            catch
+            {
+                var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV), false);
+                var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
+                //return decrypted;
+                return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
+                //return decrypted.Where(x => x > 0).ToArray();
+            }
+            finally
+            {
+                Array.Clear(rawCipherText, 0, rawCipherText.Length);
+                Array.Clear(IV, 0, 16);
+            }
 
+        }
+
+        private static string Encrypt(string key, string un, bool comp = false, byte[] unByte = null)
+        {
+            byte[] byEnc;
+            if (unByte != null)
+                byEnc = unByte;
+            else
+                byEnc = Encoding.UTF8.GetBytes(un);
+
+            if (comp)
+                byEnc = GzipCompress(byEnc);
+
+            try
+            {
+                var a = CreateEncryptionAlgorithm(key, null);
+                var f = a.CreateEncryptor().TransformFinalBlock(byEnc, 0, byEnc.Length);
+                return Convert.ToBase64String(CombineArrays(a.IV, f));
+            }
+            catch
+            {
+                var a = CreateEncryptionAlgorithm(key, null, false);
+                var f = a.CreateEncryptor().TransformFinalBlock(byEnc, 0, byEnc.Length);
+                return Convert.ToBase64String(CombineArrays(a.IV, f));
+            }
+        }
+
+        private static SymmetricAlgorithm CreateEncryptionAlgorithm(string key, string IV, bool rij = true)
+        {
+            SymmetricAlgorithm algorithm;
+            if (rij)
+                algorithm = new RijndaelManaged();
+            else
+                algorithm = new AesCryptoServiceProvider();
+
+            algorithm.Mode = CipherMode.CBC;
+            algorithm.Padding = PaddingMode.Zeros;
+            algorithm.BlockSize = 128;
+            algorithm.KeySize = 256;
+
+            if (null != IV)
+                algorithm.IV = Convert.FromBase64String(IV);
+            else
+                algorithm.GenerateIV();
+
+            if (null != key)
+                algorithm.Key = Convert.FromBase64String(key);
+
+            return algorithm;
+        }
+
+        private static byte[] GzipCompress(byte[] raw)
+        {
+            using (MemoryStream memory = new MemoryStream())
+            {
+                using (GZipStream gzip = new GZipStream(memory, CompressionMode.Compress, true))
+                {
+                    gzip.Write(raw, 0, raw.Length);
+                }
+                return memory.ToArray();
+            }
+        }
+
+        private static byte[] CombineArrays(byte[] first, byte[] second)
+        {
+            byte[] ret = new byte[first.Length + second.Length];
+            Buffer.BlockCopy(first, 0, ret, 0, first.Length);
+            Buffer.BlockCopy(second, 0, ret, first.Length, second.Length);
+            return ret;
+        }
+    }
 
     public class Class1
     {
@@ -155,13 +305,13 @@ namespace FComm
         public static void Main(string[] args)
         {
             Console.WriteLine(String.Join(",", args));
-            //Start(args);
+            Start(args);
             //Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             /*
             Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             Console.ReadLine();
             */
-            Start(new string[] { "foo" });
+            //Start(new string[] { "foo" });
             /*Console.ReadLine();
             Start(new string[] { "foo" });
             Console.ReadLine();

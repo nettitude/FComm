@@ -4,10 +4,10 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{1B5E8313-EEA6-4A4B-B4A0-6278DC00670D}</ProjectGuid>
+    <ProjectGuid>{BC76C86B-D160-44FE-8EB1-048896AD0761}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>FComm</RootNamespace>
-    <AssemblyName>FComm</AssemblyName>
+    <RootNamespace>testwatcher</RootNamespace>
+    <AssemblyName>testwatcher</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
