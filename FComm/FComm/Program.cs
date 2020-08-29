@@ -71,7 +71,7 @@ namespace FComm
                 FilePath = FilePath_In;
                 Key = key;
                 RHDataGram InitialObject = GetData();
-                Console.WriteLine(InitialObject.Output);
+                Console.WriteLine(Encoding.UTF8.GetString(Convert.FromBase64String(InitialObject.Output)));
                 InitialObject.Retrieved = true;
                 ClearTask();
             }
@@ -381,8 +381,6 @@ namespace FComm
                                 RHDataGram Task = FComm.GetCurrentTasking();
                                 if (Task.Output != "")
                                 {
-                                    Console.WriteLine(Task.ToString());
-                                    Console.WriteLine(Task.Output);
                                     Task.Retrieved = true;
                                     FComm.UpdateTask(Task);
                                     WaitOnTask = false;
