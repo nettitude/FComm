@@ -147,6 +147,8 @@ namespace FComm
     {
         private static string FilePath;
         private static string Encryptionkey = "";
+        private static bool Running = false;
+        private static bool Initialised = false;
         private static RHServer FComm;
         private static readonly object _lock = new object();
 
@@ -154,12 +156,13 @@ namespace FComm
         {
             Console.WriteLine(String.Join(",", args));
             //Start(args);
-            Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
+            //Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             /*
             Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
             Console.ReadLine();
+            */
             Start(new string[] { "foo" });
-            Console.ReadLine();
+            /*Console.ReadLine();
             Start(new string[] { "foo" });
             Console.ReadLine();
             Start(new string[] { "foo" });
@@ -174,7 +177,6 @@ namespace FComm
         /// </summary>
         public static void Start(string[] args)
         {
-            bool Running = false;
 
 
             if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
@@ -185,10 +187,15 @@ namespace FComm
                 FComm = new RHServer(FilePath); //create an object.
                 Running = true;
                 Init(FComm);
-                Running = false;
+                if (Initialised == true)
+                {
+                    Running = false;
+                }
+                
             }
-            else
+            else if (Initialised == true)
             {
+                Running = true;
                 var command = $"{string.Join(" ", args)}";
                 if (command.ToLower().StartsWith("kill"))
                 {
@@ -231,6 +238,7 @@ namespace FComm
                             Console.WriteLine("Init Received or something");
                             Console.WriteLine(Task.Output);
                             Task.Retrieved = true;
+                            Initialised = true;
                             continue;
                         }
                     }

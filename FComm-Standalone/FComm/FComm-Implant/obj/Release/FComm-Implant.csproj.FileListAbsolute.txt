@@ -3,3 +3,11 @@ E:\FComm-Standalone\FComm\FComm-Implant\bin\Release\FComm-Implant.pdb
 E:\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.csprojAssemblyReference.cache
 E:\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.exe
 E:\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.pdb
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\bin\Release\FComm.exe
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\bin\Release\FComm.pdb
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\bin\Release\Newtonsoft.Json.dll
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\bin\Release\Newtonsoft.Json.xml
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.csprojAssemblyReference.cache
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm-Implant.csproj.CopyComplete
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm.exe
+E:\FComm\FComm-Standalone\FComm\FComm-Implant\obj\Release\FComm.pdb
