@@ -5,11 +5,10 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
-using System.Security;
 
 namespace FComm
 {
-    public class RHDataGram
+    public class FCDataGram
     {
         public string PacketType { get; set; }
         public string Input { get; set; }
@@ -17,22 +16,13 @@ namespace FComm
         public bool Actioned { get; set; }
         public bool Retrieved { get; set; }
 
-        public RHDataGram()
+        public FCDataGram()
         {
             Actioned = false;
             Retrieved = false;
         }
 
-        public RHDataGram(string[] objContents)
-        {
-            PacketType = objContents[0];
-            Input = objContents[1];
-            Output = objContents[2];
-            Actioned = bool.Parse(objContents[3]);
-            Retrieved = bool.Parse(objContents[4]);
-        }
-
-        public RHDataGram(string objContents)
+        public FCDataGram(string objContents)
         {
             char[] delim = { ',' };
             FromStringArray(objContents.Split(delim));
@@ -45,7 +35,7 @@ namespace FComm
 
         public string[] ToStringArray()
         {
-            return new string[] { PacketType, Input, Output, Actioned.ToString(), Retrieved.ToString() };
+            return new[] { PacketType, Input, Output, Actioned.ToString(), Retrieved.ToString() };
         }
 
         public void FromStringArray(string[] objContents)
@@ -58,204 +48,174 @@ namespace FComm
         }
     }
 
-    public class RHServer
+    public class FCommServer
     {
-        //Client is the far end of this connection.
-        private string FilePath;
-        private string Key;
-        public RHServer(string FilePath_In, string key)
+        private readonly string _filepath;
+        private readonly string _key;
+
+        public FCommServer(string filepath, string key)
         {
-            //initialise object.
             try
             {
-                FilePath = FilePath_In;
-                Key = key;
-                RHDataGram InitialObject = GetData();
-                Console.WriteLine(Encoding.UTF8.GetString(Convert.FromBase64String(InitialObject.Output)));
-                InitialObject.Retrieved = true;
-                ClearTask();
-            }
-            catch (SecurityException e)
-            {
-                Console.WriteLine(e.Message);
+                _filepath = filepath;
+                _key = key;
+                var initPacket = ReadFromFile();
+                if (initPacket == null || initPacket.PacketType != "INIT")
+                {
+                    throw new Exception($"Packet in file is not an INIT packet, delete the file if it is from an old FComm instance: {initPacket}");
+                }
+
+                Console.WriteLine(Encoding.UTF8.GetString(Convert.FromBase64String(initPacket.Input)));
+                initPacket.Actioned = true;
+                // TODO here is where we can write the new config
+                initPacket.Output = null;
+                WriteToFile(initPacket);
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
+                throw;
             }
         }
 
         public void SetNewTask(string input)
         {
-            RHDataGram Task = new RHDataGram() { PacketType = "TASK", Input = input, Output = "" };
-            SendData(Task);
+            var currentInput = ReadFromFile();
+            if (currentInput != null)
+            {
+                throw new Exception($"File is not empty when writing new task: {currentInput}...");
+            }
 
+            var task = new FCDataGram { PacketType = "TASK", Input = input, Output = null };
+#if DEBUG
+            Console.WriteLine($"[*] Writing new FComm task to file: {task}");
+#endif
+            WriteToFile(task);
         }
 
-        public RHDataGram GetCurrentTasking()
-        {
-            //Just to make the methods seem sensible.
-            return GetData();
-        }
         public void ClearTask()
         {
-            //Really for a server instance.
-            bool FileExists = true;
-            while (FileExists)
+            // TODO limit attempts?
+            while (true)
             {
                 try
                 {
-                    File.Delete(FilePath);
-                    FileExists = false;
-
-                } catch (IOException)
-                {
-                    //ToDo: again needs an attempt counter so it just doesn't perma hang
-                    Thread.Sleep(500);
-                }
-            }
-        }
-        public void UpdateTask(RHDataGram Task)
-        {
-            //Just to make the methods seem sensible.
-            SendData(Task);
-        }
-
-        private void SafeFileWrite(string data)
-        {
-            //Guaranteed File Write.
-            FileStream f = null;
-            while (f == null)
-            {
-                try
-                {
-                    f = new FileStream(FilePath, FileMode.Create, FileAccess.Write);
-                    StreamWriter sr = new StreamWriter(f);
-                    sr.WriteLine(data);
-                    sr.Close();
-                    f.Close();
-                    sr.Dispose();
-                    f.Dispose();
-                }
-                catch (IOException)
-                {
-                    //TODO: Limit attempts, throw an exception to indicate access has been lost
-                    Thread.Sleep(200); // small sleep to wait before we loop to try again. Need to have an "attempts" limit. but not yet.
-                }
-            }
-        }
-        private string SafeFileRead()
-        {
-            string StrTask = "";
-            int counter = 0;
-            FileStream f = null;
-            while (f == null)
-            {
-                try
-                {
-                    f = new FileStream(FilePath, FileMode.Open, FileAccess.Read);
-                    StreamReader sr = new StreamReader(f);
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
+                    using (var fileStream = new FileStream(_filepath, FileMode.Create, FileAccess.Write))
                     {
-                        if (counter > 1)
-                        {
-                            throw new Exception();
-                        }
-                        //This should only happen once. Should. SHOULD. shit. it wont. so above it'll throw an exception if it derps.
-                        StrTask = (line);
-                        counter++;
+                        fileStream.SetLength(0);
+                        return;
                     }
-                    sr.Close();
-                    f.Close();
-                    sr.Dispose();
-                    f.Dispose();
                 }
-                catch (IOException)
+                catch (IOException e)
                 {
-                    //TODO: Limit attempts, throw an exception to indicate access has been lost
-                    Thread.Sleep(500); // small sleep to wait before we loop to try again. Need to have an "attempts" limit. but not yet.
+#if DEBUG
+                    Console.WriteLine($"[-] Error clearing tasks in file: {e.Message}. Retrying...");
+#endif
+                    Thread.Sleep(5000);
                 }
             }
-            return StrTask;
         }
 
-        private void SendData(RHDataGram DataToSend)
+        private void WriteToFile(FCDataGram data)
         {
-            //Turn object into a string.
-            //encrypt it
-            //write it.
-            SafeFileWrite(Encrypt(Key, DataToSend.ToString()));
+            var encrypted = Encrypt(_key, data.ToString());
+            // TODO limit attempts?
+            while (true)
+            {
+                try
+                {
+                    using (var fileStream = new FileStream(_filepath, FileMode.Create, FileAccess.Write))
+                    {
+                        using (var streamWriter = new StreamWriter(fileStream))
+                        {
+                            streamWriter.WriteLine(encrypted);
+                            return;
+                        }
+                    }
+                }
+                catch (IOException e)
+                {
+#if DEBUG
+                    Console.WriteLine($"[-] Error writing to file: {e.Message}, retrying...");
+#endif
+                    Thread.Sleep(5000);
+                }
+            }
         }
 
-        private RHDataGram GetData()
+        internal FCDataGram ReadFromFile()
         {
-            //Get the contents of the file.
-            //Decrypt it
-            //Create a DataGram.
-            return new RHDataGram(Decrypt(Key, SafeFileRead()));
+            while (true)
+            {
+                try
+                {
+                    using (var fileStream = new FileStream(_filepath, FileMode.Open, FileAccess.Read))
+                    {
+                        using (var streamReader = new StreamReader(fileStream))
+                        {
+                            // TODO multiple lines?
+                            var line = streamReader.ReadLine();
+                            return line == null ? null : new FCDataGram(Decrypt(_key, line).TrimEnd('\0'));
+                        }
+                    }
+                }
+                catch (IOException e)
+                {
+#if DEBUG
+                    Console.WriteLine($"[-] Error reading from file: {e.Message}, retrying...");
+#endif
+                    Thread.Sleep(5000);
+                }
+            }
         }
 
-        public void CleanUp()
-        {
-            //maybe utilise POSH SHRED here?
-            File.Delete(FilePath);
-        }
         private static string Decrypt(string key, string ciphertext)
         {
             var rawCipherText = Convert.FromBase64String(ciphertext);
-            var IV = new Byte[16];
-            Array.Copy(rawCipherText, IV, 16);
+            var iv = new byte[16];
+            Array.Copy(rawCipherText, iv, 16);
             try
             {
-                var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV));
+                var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(iv));
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                //return decrypted;
-                //return decrypted.Where(x => x > 0).ToArray();
                 return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
             }
             catch
             {
-                var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(IV), false);
+                var algorithm = CreateEncryptionAlgorithm(key, Convert.ToBase64String(iv), false);
                 var decrypted = algorithm.CreateDecryptor().TransformFinalBlock(rawCipherText, 16, rawCipherText.Length - 16);
-                //return decrypted;
                 return Encoding.UTF8.GetString(decrypted.Where(x => x > 0).ToArray());
-                //return decrypted.Where(x => x > 0).ToArray();
             }
             finally
             {
                 Array.Clear(rawCipherText, 0, rawCipherText.Length);
-                Array.Clear(IV, 0, 16);
+                Array.Clear(iv, 0, 16);
             }
-
         }
 
         private static string Encrypt(string key, string un, bool comp = false, byte[] unByte = null)
         {
-            byte[] byEnc;
-            if (unByte != null)
-                byEnc = unByte;
-            else
-                byEnc = Encoding.UTF8.GetBytes(un);
+            byte[] encryptedBytes;
+            encryptedBytes = unByte ?? Encoding.UTF8.GetBytes(un);
 
             if (comp)
-                byEnc = GzipCompress(byEnc);
+                encryptedBytes = GzipCompress(encryptedBytes);
 
             try
             {
                 var a = CreateEncryptionAlgorithm(key, null);
-                var f = a.CreateEncryptor().TransformFinalBlock(byEnc, 0, byEnc.Length);
+                var f = a.CreateEncryptor().TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
                 return Convert.ToBase64String(CombineArrays(a.IV, f));
             }
             catch
             {
                 var a = CreateEncryptionAlgorithm(key, null, false);
-                var f = a.CreateEncryptor().TransformFinalBlock(byEnc, 0, byEnc.Length);
+                var f = a.CreateEncryptor().TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
                 return Convert.ToBase64String(CombineArrays(a.IV, f));
             }
         }
 
-        private static SymmetricAlgorithm CreateEncryptionAlgorithm(string key, string IV, bool rij = true)
+        private static SymmetricAlgorithm CreateEncryptionAlgorithm(string key, string iv, bool rij = true)
         {
             SymmetricAlgorithm algorithm;
             if (rij)
@@ -268,8 +228,8 @@ namespace FComm
             algorithm.BlockSize = 128;
             algorithm.KeySize = 256;
 
-            if (null != IV)
-                algorithm.IV = Convert.FromBase64String(IV);
+            if (null != iv)
+                algorithm.IV = Convert.FromBase64String(iv);
             else
                 algorithm.GenerateIV();
 
@@ -281,120 +241,146 @@ namespace FComm
 
         private static byte[] GzipCompress(byte[] raw)
         {
-            using (MemoryStream memory = new MemoryStream())
+            using (var memory = new MemoryStream())
             {
-                using (GZipStream gzip = new GZipStream(memory, CompressionMode.Compress, true))
+                using (var gzip = new GZipStream(memory, CompressionMode.Compress, true))
                 {
                     gzip.Write(raw, 0, raw.Length);
                 }
+
                 return memory.ToArray();
             }
         }
 
         private static byte[] CombineArrays(byte[] first, byte[] second)
         {
-            byte[] ret = new byte[first.Length + second.Length];
+            var ret = new byte[first.Length + second.Length];
             Buffer.BlockCopy(first, 0, ret, 0, first.Length);
             Buffer.BlockCopy(second, 0, ret, first.Length, second.Length);
             return ret;
         }
     }
 
-    public class Class1
+    public static class FCClass
     {
-        private static bool Initialised = false;
-        private static RHServer FComm;
-        private static readonly object _lock = new object();
+        private static bool _initialised;
+        private static FCommServer _fCommServer;
+        private static readonly object LOCK = new object();
 
         public static void Main(string[] args)
         {
-            Console.WriteLine(String.Join(",", args));
+            Console.WriteLine(string.Join(",", args));
             Start(args);
-            //Start(new string[] { "Start", "c:\\users\\public\\test.ost", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
-            /*
-            Start(new string[] { "Start", "ATHOMPSON", "msukpipereader", "mtkn4", "c7P+slKaJuUuq06OUZnp4HFKOEsc+e86m24Lzzsqg+c=" });
-            Console.ReadLine();
-            */
-            //Start(new string[] { "foo" });
-            /*Console.ReadLine();
-            Start(new string[] { "foo" });
-            Console.ReadLine();
-            Start(new string[] { "foo" });
-            Console.ReadLine();
-            Start(new string[] { "foo" });
-            Console.ReadLine();
-            */
         }
 
-        /// <summary>
-        /// Just a function that main can wrap for testing. 
-        /// </summary>
-        public static void Start(string[] args)
+        private static void Start(string[] args)
         {
-
-            if (args.Length == 3 && args[0].ToLower() == "start") // If in format 'Start <filepath> <key>'
+            if (args.Length == 3 && args[0].ToLower() == "start")
             {
                 try
                 {
-                    if (Initialised == false)
+                    if (_initialised)
                     {
-                        string FilePath = args[1];
-                        string Encryptionkey = args[2];
-                        Console.WriteLine($"[+] Connecting to: {FilePath} with key {Encryptionkey}");
-                        FComm = new RHServer(FilePath, Encryptionkey); //create an object.
-                        if (FComm != null)
-                        {
-                            Initialised = true; //update state of the the server
-                        }
+                        Console.WriteLine("FComm already initialised...");
+                        return;
+                    }
+
+                    var filePath = args[1];
+                    var encryptionKey = args[2];
+                    Console.WriteLine($"[+] Connecting to: {filePath} with key {encryptionKey}");
+                    lock (LOCK)
+                    {
+                        _fCommServer = new FCommServer(filePath, encryptionKey);
+                    }
+
+                    if (_fCommServer != null)
+                    {
+                        _initialised = true;
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"[-] Error in FComm Initialisation!!: {e.Message}");
-                    Console.WriteLine($"[-] {e.StackTrace}");
+                    Console.WriteLine($"[-] Error in FComm Initialisation!!: {e}");
                 }
 
+                return;
             }
-            else
+
+            lock (LOCK)
             {
-                lock (_lock)
+                try
                 {
-                    try
+                    var currentContents = _fCommServer.ReadFromFile();
+                    if (currentContents != null)
                     {
-                        var command = $"{string.Join(" ", args)}";
-                        if (command.ToLower().StartsWith("kill"))
+                        if (currentContents.PacketType == "INIT")
                         {
-                            FComm.SetNewTask(command);
-                            //assume the kill command works - maybe need to remove the implant from poshc2?
+                            while (true)
+                            {
+                                if (currentContents.Retrieved)
+                                {
+                                    _fCommServer.ClearTask();
+                                    break;
+                                }
+#if DEBUG
+                                Console.WriteLine("[*] Init task has not been retrieved yet...");
+#endif
+                                Thread.Sleep(5000);
+                            }
                         }
                         else
                         {
-                            bool WaitOnTask = true;
-                            FComm.SetNewTask(command);
-                            while (WaitOnTask)
-                            {
-                                RHDataGram Task = FComm.GetCurrentTasking();
-                               
-                                if (Task.PacketType == "TASK" && Task.Output.Length > 4)
-                                {
-                                    Console.WriteLine(Encoding.UTF8.GetString(Convert.FromBase64String(Task.Output)));
-                                    Task.Retrieved = true;
-                                    FComm.UpdateTask(Task);
-                                    WaitOnTask = false;
-                                }
-                            }
+#if DEBUG
+                            Console.WriteLine($"[-] Unexpected task already in file: {currentContents}");
+#endif
+                            throw new Exception($"[-] Unexpected task already in file: {currentContents}");
                         }
                     }
-                    catch (Exception e)
+
+                    var command = $"{string.Join(" ", args)}";
+
+                    _fCommServer.SetNewTask(command);
+
+                    if (command.ToLower().StartsWith("kill"))
                     {
-                        Console.WriteLine($"[-] Error in FComm Command: {e.Message}");
-                        Console.WriteLine($"[-] {e.StackTrace}");
+                        Console.Write("FComm server killed...");
+                        return;
+                    }
+
+                    while (true)
+                    {
+                        var task = _fCommServer.ReadFromFile();
+
+                        if (task == null)
+                        {
+#if DEBUG
+                            Console.WriteLine("[-] Task has been cleared from file...");
+#endif
+                            throw new Exception("[-] Task has been cleared from file...");
+                        }
+
+                        if (task.PacketType != "TASK")
+                            throw new Exception($"Invalid task packet: {task}");
+
+                        if (!task.Actioned)
+                        {
+#if DEBUG
+                            Console.WriteLine("[-] Task has not been actioned, waiting...");
+#endif
+                            Thread.Sleep(2000);
+                            continue;
+                        }
+
+                        Console.WriteLine(Encoding.UTF8.GetString(Convert.FromBase64String(task.Output)));
+                        _fCommServer.ClearTask();
+                        break;
                     }
                 }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[-] Error in FComm Command: {e}");
+                }
             }
-
         }
     }
-
 }
-

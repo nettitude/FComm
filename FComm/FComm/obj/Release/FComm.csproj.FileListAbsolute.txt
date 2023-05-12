@@ -1,6 +1,0 @@
-E:\FComm\FComm\FComm\bin\Release\FComm.exe.config
-E:\FComm\FComm\FComm\bin\Release\FComm.exe
-E:\FComm\FComm\FComm\bin\Release\FComm.pdb
-E:\FComm\FComm\FComm\obj\Release\FComm.csprojAssemblyReference.cache
-E:\FComm\FComm\FComm\obj\Release\FComm.exe
-E:\FComm\FComm\FComm\obj\Release\FComm.pdb

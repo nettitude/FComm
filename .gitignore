@@ -96,3 +96,10 @@ ENV/
 
 # VStudio
 .vs/
+
+# Jetbrains
+.idea/
+
+# C#
+bin/
+obj/

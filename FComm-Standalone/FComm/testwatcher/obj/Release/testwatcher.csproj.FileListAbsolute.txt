@@ -1,5 +1,0 @@
-E:\FComm\FComm-Standalone\FComm\testwatcher\bin\Release\testwatcher.exe
-E:\FComm\FComm-Standalone\FComm\testwatcher\bin\Release\testwatcher.pdb
-E:\FComm\FComm-Standalone\FComm\testwatcher\obj\Release\testwatcher.csprojAssemblyReference.cache
-E:\FComm\FComm-Standalone\FComm\testwatcher\obj\Release\testwatcher.exe
-E:\FComm\FComm-Standalone\FComm\testwatcher\obj\Release\testwatcher.pdb
