@@ -52,6 +52,8 @@ namespace FComm
     {
         private readonly string _filepath;
         private readonly string _key;
+        internal const int SLEEP_TIME_MILLIS = 1000;
+
 
         public FCommServer(string filepath, string key)
         {
@@ -111,7 +113,7 @@ namespace FComm
 #if DEBUG
                     Console.WriteLine($"[-] Error clearing tasks in file: {e.Message}. Retrying...");
 #endif
-                    Thread.Sleep(5000);
+                    Thread.Sleep(SLEEP_TIME_MILLIS);
                 }
             }
         }
@@ -138,7 +140,7 @@ namespace FComm
 #if DEBUG
                     Console.WriteLine($"[-] Error writing to file: {e.Message}, retrying...");
 #endif
-                    Thread.Sleep(5000);
+                    Thread.Sleep(SLEEP_TIME_MILLIS);
                 }
             }
         }
@@ -164,7 +166,7 @@ namespace FComm
 #if DEBUG
                     Console.WriteLine($"[-] Error reading from file: {e.Message}, retrying...");
 #endif
-                    Thread.Sleep(5000);
+                    Thread.Sleep(SLEEP_TIME_MILLIS);
                 }
             }
         }
@@ -325,7 +327,7 @@ namespace FComm
 #if DEBUG
                                 Console.WriteLine("[*] Init task has not been retrieved yet...");
 #endif
-                                Thread.Sleep(5000);
+                                Thread.Sleep(FCommServer.SLEEP_TIME_MILLIS);
                             }
                         }
                         else
@@ -367,7 +369,7 @@ namespace FComm
 #if DEBUG
                             Console.WriteLine("[-] Task has not been actioned, waiting...");
 #endif
-                            Thread.Sleep(2000);
+                            Thread.Sleep(FCommServer.SLEEP_TIME_MILLIS);
                             continue;
                         }
 
